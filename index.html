@@ -801,17 +801,13 @@
       function layoutBlackKeys() {
         const whiteKeys = pianoEl.querySelectorAll(".white-key");
         if (!whiteKeys.length) return;
-        const pianoRect = pianoEl.getBoundingClientRect();
-        const whiteW = whiteKeys[0].getBoundingClientRect().width;
+        const whiteW = pianoEl.clientWidth / whiteKeys.length;
         const blackW = whiteW * 0.58;
 
         BLACK_INDICES.forEach((noteIdx, bi) => {
           const key = keyEls[noteIdx];
           if (!key) return;
-          const afterWhite = BLACK_AFTER_WHITE[bi];
-          const boundaryKey = whiteKeys[afterWhite];
-          const boundaryRect = boundaryKey.getBoundingClientRect();
-          const centerX = boundaryRect.left - pianoRect.left;
+          const centerX = BLACK_AFTER_WHITE[bi] * whiteW;
           key.style.width = blackW + "px";
           key.style.left = centerX + "px";
         });
@@ -1406,7 +1402,7 @@
         }
       });
 
-      window.addEventListener("resize", () => {
+      function onViewportChange() {
         layoutBlackKeys();
         syncAllMechThumbs();
         if (state === "reveal") {
@@ -1416,7 +1412,10 @@
         } else {
           drawStaff(null);
         }
-      });
+      }
+
+      window.addEventListener("resize", onViewportChange);
+      window.addEventListener("orientationchange", onViewportChange);
 
       if (clefImg) {
         clefImg.addEventListener("load", () => {
