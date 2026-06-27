@@ -126,6 +126,8 @@
       flex: 1;
       min-height: 0;
       padding: 2px 0;
+      touch-action: none;
+      cursor: pointer;
     }
 
     .mech-rail {
@@ -134,12 +136,15 @@
       height: 100%;
       max-height: var(--rail-max-h);
       min-height: 48px;
-      cursor: grab;
+      cursor: pointer;
       touch-action: none;
     }
 
-    .mech-rail:active {
-      cursor: grabbing;
+    .mech-rail::before {
+      content: "";
+      position: absolute;
+      inset: -10px -14px;
+      z-index: 0;
     }
 
     .mech-groove {
@@ -194,6 +199,8 @@
       color: rgba(232, 244, 255, 0.42);
       line-height: 1;
       white-space: nowrap;
+      pointer-events: auto;
+      cursor: pointer;
     }
 
     .mech-ticks i::before {
@@ -903,6 +910,25 @@
 
       const MECH_RAIL = { inset: 8, thumbH: 18 };
 
+      function clientToLocalY(el, clientX, clientY) {
+        const h = el.offsetHeight;
+        const w = el.offsetWidth;
+        if (!h) return 0;
+
+        const rect = el.getBoundingClientRect();
+        const axisAligned = Math.abs(rect.height - h) < 2 && Math.abs(rect.width - w) < 2;
+        if (axisAligned) {
+          return clientY - rect.top;
+        }
+
+        if (Math.abs(rect.width - h) < 4 && Math.abs(rect.height - w) < 4) {
+          const t = (clientX - rect.left) / Math.max(rect.width, 1);
+          return t * h;
+        }
+
+        return clientY - rect.top;
+      }
+
       function syncMechThumb(input, thumbEl, railEl) {
         if (!input || !thumbEl || !railEl) return;
         const min = Number(input.min);
@@ -913,49 +939,69 @@
         thumbEl.style.top = (MECH_RAIL.inset + (1 - t) * travel - MECH_RAIL.thumbH / 2) + "px";
       }
 
-      function mechValueFromPointerY(railEl, input, clientY) {
-        const rect = railEl.getBoundingClientRect();
+      function mechValueFromPointerY(railEl, input, clientX, clientY) {
         const min = Number(input.min);
         const max = Number(input.max);
         const travel = railEl.clientHeight - MECH_RAIL.inset * 2;
-        let y = clientY - rect.top - MECH_RAIL.inset;
+        let y = clientToLocalY(railEl, clientX, clientY) - MECH_RAIL.inset;
         y = Math.max(0, Math.min(travel, y));
         const t = 1 - y / travel;
         return Math.round(min + t * (max - min));
       }
 
-      function setMechFromPointer(railEl, input, thumbEl, clientY, onChange) {
+      function setMechValue(input, thumbEl, railEl, value, onChange) {
         if (input.disabled) return;
-        const next = mechValueFromPointerY(railEl, input, clientY);
-        if (Number(input.value) !== next) {
-          input.value = String(next);
-          onChange();
-        } else {
-          syncMechThumb(input, thumbEl, railEl);
-        }
+        const min = Number(input.min);
+        const max = Number(input.max);
+        const next = Math.max(min, Math.min(max, value));
+        input.value = String(next);
+        syncMechThumb(input, thumbEl, railEl);
+        onChange();
+      }
+
+      function setMechFromPointer(railEl, input, thumbEl, clientX, clientY, onChange) {
+        if (input.disabled) return;
+        const next = mechValueFromPointerY(railEl, input, clientX, clientY);
+        setMechValue(input, thumbEl, railEl, next, onChange);
       }
 
       function bindMechRail(railEl, input, thumbEl, onChange) {
-        railEl.addEventListener("pointerdown", (e) => {
+        const sliderEl = railEl.closest(".mech-slider") || railEl;
+        const ticksEl = railEl.querySelector(".mech-ticks");
+
+        const onPointerDown = (e) => {
           if (input.disabled) return;
           e.preventDefault();
-          railEl.setPointerCapture(e.pointerId);
-          setMechFromPointer(railEl, input, thumbEl, e.clientY, onChange);
-        });
-        railEl.addEventListener("pointermove", (e) => {
-          if (!railEl.hasPointerCapture(e.pointerId)) return;
-          setMechFromPointer(railEl, input, thumbEl, e.clientY, onChange);
-        });
-        railEl.addEventListener("pointerup", (e) => {
-          if (railEl.hasPointerCapture(e.pointerId)) {
-            railEl.releasePointerCapture(e.pointerId);
+          sliderEl.setPointerCapture(e.pointerId);
+          setMechFromPointer(railEl, input, thumbEl, e.clientX, e.clientY, onChange);
+        };
+
+        const onPointerMove = (e) => {
+          if (!sliderEl.hasPointerCapture(e.pointerId)) return;
+          setMechFromPointer(railEl, input, thumbEl, e.clientX, e.clientY, onChange);
+        };
+
+        const releasePointer = (e) => {
+          if (sliderEl.hasPointerCapture(e.pointerId)) {
+            sliderEl.releasePointerCapture(e.pointerId);
           }
-        });
-        railEl.addEventListener("pointercancel", (e) => {
-          if (railEl.hasPointerCapture(e.pointerId)) {
-            railEl.releasePointerCapture(e.pointerId);
-          }
-        });
+        };
+
+        sliderEl.addEventListener("pointerdown", onPointerDown);
+        sliderEl.addEventListener("pointermove", onPointerMove);
+        sliderEl.addEventListener("pointerup", releasePointer);
+        sliderEl.addEventListener("pointercancel", releasePointer);
+
+        if (ticksEl) {
+          ticksEl.querySelectorAll("i[data-val]").forEach((tick) => {
+            tick.addEventListener("pointerdown", (e) => {
+              if (input.disabled) return;
+              e.preventDefault();
+              e.stopPropagation();
+              setMechValue(input, thumbEl, railEl, Number(tick.dataset.val), onChange);
+            });
+          });
+        }
       }
 
       function syncAllMechThumbs() {
