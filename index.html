@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>舟舟辨音</title>
+  <style>
+    :root {
+      --bg1: #1a2a3a;
+      --bg2: #2d4a5e;
+      --ink: #e8f4ff;
+      --green: #2dc66d;
+      --red: #f04b4b;
+      --gold: #ffd45a;
+      --panel: rgba(255, 255, 255, 0.1);
+      --lcd-bg: #0a1f14;
+      --lcd-fg: #3dff8a;
+      --lcd-dim: #1a5c38;
+      --section-gap: clamp(6px, 1.5vw, 14px);
+      font-family: "Arial", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      overflow: hidden;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    .rotate-hint {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: #1a2a3a;
+      color: #fff;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      font-size: 22px;
+      font-weight: 800;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .rotate-hint .icon {
+      font-size: 64px;
+      animation: rotate-phone 2s ease-in-out infinite;
+    }
+
+    @keyframes rotate-phone {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(90deg); }
+    }
+
+    @media (orientation: portrait) {
+      .rotate-hint { display: flex; }
+      .game { visibility: hidden; }
+    }
+
+    .game {
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      height: 100dvh;
+      max-height: 100vh;
+      overflow: hidden;
+      gap: var(--section-gap);
+    }
+
+    /* ── 上半部分 ── */
+    .upper {
+      flex: 0.78;
+      display: grid;
+      grid-template-columns: minmax(88px, 12vw) 1fr minmax(72px, 10vw);
+      gap: var(--section-gap);
+      padding: clamp(8px, 1.5vh, 16px) clamp(10px, 2vw, 20px) 0;
+      min-height: 0;
+    }
+
+    .slider-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 4px;
+      border-radius: 16px;
+      background: var(--panel);
+      border: 2px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(6px);
+    }
+
+    .slider-panel.disabled {
+      opacity: 0.38;
+      pointer-events: none;
+    }
+
+    .slider-panel label {
+      font-size: clamp(10px, 2vw, 13px);
+      font-weight: 800;
+      color: rgba(232, 244, 255, 0.75);
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    .mech-slider {
+      --rail-h: clamp(88px, 25vh, 158px);
+      --groove-w: 26px;
+      --rail-inset: 8px;
+      --thumb-h: 18px;
+      display: flex;
+      justify-content: center;
+      padding: 2px 0;
+    }
+
+    .mech-rail {
+      position: relative;
+      width: calc(var(--groove-w) + 38px);
+      height: var(--rail-h);
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .mech-rail:active {
+      cursor: grabbing;
+    }
+
+    .mech-groove {
+      position: absolute;
+      left: 0;
+      top: 8px;
+      bottom: 8px;
+      width: var(--groove-w);
+      border-radius: 5px;
+      background: linear-gradient(90deg, #0e141c 0%, #283444 42%, #141c26 100%);
+      box-shadow:
+        inset 0 3px 8px rgba(0, 0, 0, 0.72),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.07),
+        0 0 0 1px rgba(0, 0, 0, 0.45),
+        0 1px 0 rgba(255, 255, 255, 0.06);
+      z-index: 0;
+    }
+
+    .mech-groove::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 50%;
+      width: 2px;
+      margin-left: -1px;
+      border-radius: 1px;
+      background: rgba(0, 0, 0, 0.35);
+    }
+
+    .mech-ticks {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 8px;
+      bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .mech-ticks i {
+      display: grid;
+      grid-template-columns: var(--groove-w) 1fr;
+      align-items: center;
+      column-gap: 7px;
+      font-style: normal;
+      font-size: clamp(9px, 1.7vw, 11px);
+      font-weight: 800;
+      color: rgba(232, 244, 255, 0.42);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .mech-ticks i::before {
+      content: "";
+      grid-column: 1;
+      justify-self: center;
+      width: calc(var(--groove-w) - 6px);
+      height: 2px;
+      border-radius: 1px;
+      background: rgba(255, 255, 255, 0.22);
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+    }
+
+    .mech-ticks i.active {
+      color: rgba(232, 244, 255, 0.9);
+    }
+
+    .mech-ticks i.active::before {
+      height: 3px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.55), rgba(255, 243, 169, 0.85));
+      box-shadow: 0 0 6px rgba(255, 211, 90, 0.35);
+    }
+
+    .mech-thumb {
+      position: absolute;
+      left: -1px;
+      width: calc(var(--groove-w) + 2px);
+      height: var(--thumb-h);
+      border-radius: 4px;
+      background: linear-gradient(180deg, #fafafa 0%, #d4d4d4 38%, #a8a8a8 100%);
+      border: 1px solid #5c5c5c;
+      box-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .mech-range-input {
+      -webkit-appearance: none;
+      appearance: none;
+      position: absolute;
+      width: 0;
+      height: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .mech-range-input::-webkit-slider-runnable-track,
+    .mech-range-input::-webkit-slider-thumb,
+    .mech-range-input::-moz-range-track,
+    .mech-range-input::-moz-range-thumb {
+      display: none;
+    }
+
+    /* ── 电子屏幕 ── */
+    .screen-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 0;
+      gap: clamp(3px, 0.7vh, 6px);
+    }
+
+    .screen-header {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      width: 100%;
+      padding: 0 4px;
+      gap: 8px;
+    }
+
+    .game-title {
+      margin: 0;
+      grid-column: 2;
+      text-align: center;
+      font-size: clamp(14px, 3vw, 22px);
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .screen-header .status-bar {
+      grid-column: 1;
+      justify-self: start;
+      min-width: 0;
+      max-width: 100%;
+      text-align: left;
+      padding: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .screen-header .chances {
+      grid-column: 3;
+      justify-self: end;
+    }
+
+    .chances {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      font-size: clamp(10px, 2vw, 13px);
+      font-weight: 700;
+      color: rgba(232, 244, 255, 0.7);
+    }
+
+    .chance-dot {
+      width: clamp(14px, 3vw, 20px);
+      height: clamp(14px, 3vw, 20px);
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(45, 198, 109, 0.6);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+
+    .chance-dot.used {
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: none;
+    }
+
+    .lcd {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      border-radius: 12px;
+      border: 3px solid #2a4a38;
+      background: var(--lcd-bg);
+      box-shadow:
+        inset 0 0 30px rgba(0, 0, 0, 0.6),
+        0 4px 16px rgba(0, 0, 0, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lcd canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      z-index: 0;
+    }
+
+    .clef-img {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: auto;
+      width: auto;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.82;
+    }
+
+    .lcd-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      font-size: clamp(48px, 14vw, 96px);
+      font-weight: 900;
+      color: var(--lcd-fg);
+      text-shadow: 0 0 20px rgba(61, 255, 138, 0.5);
+      transition: opacity 0.2s;
+    }
+
+    .lcd-overlay.correct { color: #3dff8a; }
+    .lcd-overlay.wrong { color: #ff4b6a; text-shadow: 0 0 20px rgba(255, 75, 106, 0.5); }
+    .lcd-overlay.hidden { opacity: 0; }
+
+    .lcd-overlay.icon svg {
+      width: clamp(52px, 15vw, 100px);
+      height: clamp(52px, 15vw, 100px);
+      display: block;
+      filter: drop-shadow(0 0 20px currentColor);
+    }
+
+    .start-btn {
+      padding: clamp(6px, 1.2vh, 10px) clamp(20px, 4vw, 36px);
+      border: 0;
+      border-radius: 999px;
+      color: #16324d;
+      background: linear-gradient(180deg, #fff3a9, var(--gold));
+      box-shadow: 0 5px 0 #d9a930, 0 8px 16px rgba(0, 0, 0, 0.25);
+      font-size: clamp(14px, 3vw, 20px);
+      font-weight: 900;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .start-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 1px 0 #d9a930, 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .start-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── 下半部分：钢琴 ── */
+    .piano-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 0 clamp(6px, 1.5vw, 14px) 0;
+      min-height: 0;
+    }
+
+    .piano {
+      display: flex;
+      position: relative;
+      width: 100%;
+      flex: 0 0 auto;
+      height: clamp(190px, 54vh, 360px);
+      border-radius: 8px 8px 4px 4px;
+      overflow: hidden;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .white-keys {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+
+    .white-key {
+      flex: 1;
+      position: relative;
+      background: linear-gradient(180deg, #fefefe 0%, #e8e8e8 85%, #ccc 100%);
+      border-right: 1px solid #aaa;
+      border-bottom: 3px solid #999;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.08s;
+    }
+
+    .white-key:first-child { border-left: 1px solid #aaa; }
+    .white-key:active, .white-key.pressed, .white-key.selected {
+      background: linear-gradient(180deg, #d0e8ff 0%, #a8d0f0 85%, #88b8d8 100%);
+    }
+
+    .white-key .label {
+      position: absolute;
+      bottom: 8%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: clamp(8px, 1.8vw, 13px);
+      font-weight: 700;
+      color: rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+    }
+
+    .black-keys {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 62%;
+      pointer-events: none;
+    }
+
+    .black-key {
+      position: absolute;
+      height: 100%;
+      background: linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 75%, #000 100%);
+      border-radius: 0 0 5px 5px;
+      cursor: pointer;
+      touch-action: manipulation;
+      pointer-events: auto;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.55);
+      transition: background 0.08s;
+      z-index: 2;
+      transform: translateX(-50%);
+    }
+
+    .black-key:active, .black-key.pressed, .black-key.selected {
+      background: linear-gradient(180deg, #555 0%, #333 90%, #222 100%);
+    }
+
+    .status-bar {
+      font-size: clamp(10px, 2vw, 14px);
+      font-weight: 700;
+      color: rgba(232, 244, 255, 0.65);
+      line-height: 1.3;
+    }
+  </style>
+</head>
+<body>
+  <div class="rotate-hint">
+    <div class="icon">📱</div>
+    <div>请横屏游玩</div>
+  </div>
+
+  <div class="game">
+    <div class="upper">
+      <!-- 左：音符数 -->
+      <div class="slider-panel" id="noteCountPanel">
+        <label>音符数</label>
+        <div class="mech-slider">
+          <div class="mech-rail" id="noteCountRail">
+            <div class="mech-groove" aria-hidden="true"></div>
+            <div class="mech-ticks" id="noteCountTicks" aria-hidden="true">
+              <i data-val="4"><span>4</span></i>
+              <i data-val="3"><span>3</span></i>
+              <i data-val="2"><span>2</span></i>
+              <i data-val="1" class="active"><span>1</span></i>
+            </div>
+            <div class="mech-thumb" id="noteCountThumb"></div>
+            <input type="range" class="mech-range-input" id="noteCountSlider" min="1" max="4" value="1" step="1" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 中：电子屏 -->
+      <div class="screen-area">
+        <div class="screen-header">
+          <div class="status-bar" id="statusBar">选择音符数，点击开始辨音</div>
+          <h1 class="game-title">舟舟辨音</h1>
+          <div class="chances">
+            <span>机会</span>
+            <div class="chance-dot" id="chance1"></div>
+            <div class="chance-dot" id="chance2"></div>
+            <div class="chance-dot" id="chance3"></div>
+          </div>
+        </div>
+        <div class="lcd" id="lcd">
+          <img class="clef-img" id="clefImg" src="treble_clef.svg" alt="" />
+          <canvas id="staffCanvas"></canvas>
+          <div class="lcd-overlay" id="lcdOverlay">?</div>
+        </div>
+        <button class="start-btn" id="startBtn">开始辨音</button>
+      </div>
+
+      <!-- 右：和弦/旋律 -->
+      <div class="slider-panel disabled" id="modePanel">
+        <label>模式</label>
+        <div class="mech-slider">
+          <div class="mech-rail" id="modeRail">
+            <div class="mech-groove" aria-hidden="true"></div>
+            <div class="mech-ticks" aria-hidden="true">
+              <i id="labelMelody" data-val="1"><span>旋律</span></i>
+              <i id="labelChord" data-val="0" class="active"><span>和弦</span></i>
+            </div>
+            <div class="mech-thumb" id="modeThumb"></div>
+            <input type="range" class="mech-range-input" id="modeSlider" min="0" max="1" value="0" step="1" disabled />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="piano-area">
+      <div class="piano" id="piano"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B", "C"];
+      const WHITE_LABELS = ["C", "D", "E", "F", "G", "A", "B", "C"];
+      const BLACK_INDICES = [1, 3, 6, 8, 10];
+
+      const WHITE_INDEX_MAP = [0, 2, 4, 5, 7, 9, 11, 12];
+      const NOTE_WAV_FILES = [
+        "c1.wav", "c1s.wav", "d1.wav", "d1s.wav", "e1.wav",
+        "f1.wav", "f1s.wav", "g1.wav", "g1s.wav", "a1.wav",
+        "a1s.wav", "b1.wav", "c2.wav",
+      ];
+      // 黑键位于哪两个白键之间（后一个白键的序号 1~7）
+      const BLACK_AFTER_WHITE = [1, 2, 4, 5, 6];
+
+      const STAFF_POS_FROM_TOP = [10, 10, 9, 9, 8, 7, 7, 6, 6, 5, 5, 4, 3];
+
+      const noteCountSlider = document.getElementById("noteCountSlider");
+      const noteCountRail = document.getElementById("noteCountRail");
+      const noteCountThumb = document.getElementById("noteCountThumb");
+      const noteCountTicks = document.querySelectorAll("#noteCountTicks i");
+      const modePanel = document.getElementById("modePanel");
+      const modeSlider = document.getElementById("modeSlider");
+      const modeRail = document.getElementById("modeRail");
+      const modeThumb = document.getElementById("modeThumb");
+      const labelChord = document.getElementById("labelChord");
+      const labelMelody = document.getElementById("labelMelody");
+      const startBtn = document.getElementById("startBtn");
+      const lcdOverlay = document.getElementById("lcdOverlay");
+      const staffCanvas = document.getElementById("staffCanvas");
+      const clefImg = document.getElementById("clefImg");
+      const statusBar = document.getElementById("statusBar");
+      const pianoEl = document.getElementById("piano");
+      const chanceEls = [
+        document.getElementById("chance1"),
+        document.getElementById("chance2"),
+        document.getElementById("chance3"),
+      ];
+
+      let audioCtx = null;
+      let noteClips = [];
+      let samplesReady = false;
+      let samplesLoading = null;
+      let keyEls = [];
+      let state = "idle"; // idle | playing | answering | result | reveal
+      let answerNotes = [];
+      let playerInput = [];
+      let chancesLeft = 3;
+      let noteCount = 1;
+      let isChordMode = true;
+      let resultTimeout = null;
+      let isListening = false;
+
+      const CLEF_G_LINE_RATIO = 0.625;
+
+      function isBlackKey(noteIndex) {
+        return BLACK_INDICES.includes(noteIndex);
+      }
+
+      function setListenButton(enabled) {
+        if (state === "answering") {
+          startBtn.textContent = "重听";
+          startBtn.disabled = !enabled;
+        }
+      }
+
+      function positionClefImg(staffTop, lineGap, w) {
+        const staffRight = w * 0.94;
+        const gLineY = staffTop + 3 * lineGap;
+        const clefH = lineGap * 7.6;
+        const clefLeft = w * 0.025;
+        let clefW = lineGap * 3.2;
+        if (clefImg && clefImg.naturalWidth > 0) {
+          clefW = clefH * (clefImg.naturalWidth / clefImg.naturalHeight);
+        }
+        if (clefImg) {
+          clefImg.style.height = clefH + "px";
+          clefImg.style.width = clefW + "px";
+          clefImg.style.left = clefLeft + "px";
+          clefImg.style.top = (gLineY - clefH * CLEF_G_LINE_RATIO) + "px";
+        }
+        return {
+          staffTop,
+          lineGap,
+          staffRight,
+          staffLineLeft: w * 0.015,
+          noteAreaLeft: clefLeft + clefW + lineGap * 0.45,
+        };
+      }
+
+      function initAudio() {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+      }
+
+      function sampleUrl(file) {
+        return new URL("wav/" + file, document.baseURI).href;
+      }
+
+      function loadArrayBuffer(url) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", url, true);
+          xhr.responseType = "arraybuffer";
+          xhr.onload = () => {
+            if ((xhr.status === 200 || xhr.status === 0) && xhr.response) {
+              resolve(xhr.response);
+            } else {
+              reject(new Error("xhr status " + xhr.status));
+            }
+          };
+          xhr.onerror = () => reject(new Error("xhr network error"));
+          xhr.send();
+        });
+      }
+
+      function loadAudioElement(url) {
+        return new Promise((resolve, reject) => {
+          const audio = new Audio();
+          audio.preload = "auto";
+          const finish = () => {
+            if (audio.duration && isFinite(audio.duration)) {
+              resolve(audio);
+            } else {
+              reject(new Error("invalid audio duration"));
+            }
+          };
+          audio.addEventListener("canplaythrough", finish, { once: true });
+          audio.addEventListener("loadedmetadata", finish, { once: true });
+          audio.addEventListener("error", () => reject(new Error("audio load error")), { once: true });
+          audio.src = url;
+          audio.load();
+        });
+      }
+
+      async function loadSampleFile(file, index) {
+        const url = sampleUrl(file);
+        try {
+          let arrayBuffer = null;
+          try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("fetch failed");
+            arrayBuffer = await res.arrayBuffer();
+          } catch {
+            arrayBuffer = await loadArrayBuffer(url);
+          }
+          initAudio();
+          const buffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+          noteClips[index] = { buffer, duration: buffer.duration };
+        } catch {
+          const audio = await loadAudioElement(url);
+          noteClips[index] = { audio, duration: audio.duration };
+        }
+      }
+
+      async function loadPianoSamples() {
+        if (samplesReady) return;
+        if (samplesLoading) return samplesLoading;
+        samplesLoading = (async () => {
+          const errors = [];
+          await Promise.all(NOTE_WAV_FILES.map(async (file, i) => {
+            try {
+              await loadSampleFile(file, i);
+            } catch (err) {
+              errors.push(file);
+            }
+          }));
+          if (errors.length === NOTE_WAV_FILES.length) {
+            throw new Error("all samples failed");
+          }
+          if (errors.length > 0) {
+            console.warn("部分钢琴采样未加载:", errors.join(", "));
+          }
+          samplesReady = true;
+        })();
+        return samplesLoading;
+      }
+
+      function playNote(index, duration) {
+        initAudio();
+        if (!samplesReady) {
+          loadPianoSamples()
+            .then(() => playNote(index, duration))
+            .catch(() => {});
+          return;
+        }
+
+        const clip = noteClips[index];
+        if (!clip) return;
+
+        const playLen = duration && duration < clip.duration ? duration : clip.duration;
+
+        if (clip.buffer) {
+          const now = audioCtx.currentTime;
+          const src = audioCtx.createBufferSource();
+          src.buffer = clip.buffer;
+          const gain = audioCtx.createGain();
+          gain.gain.setValueAtTime(0.85, now);
+          if (duration && duration < clip.duration) {
+            gain.gain.setValueAtTime(0.85, now + playLen - 0.04);
+            gain.gain.linearRampToValueAtTime(0, now + playLen);
+          }
+          src.connect(gain);
+          gain.connect(audioCtx.destination);
+          src.start(now);
+          src.stop(now + playLen + 0.02);
+          return;
+        }
+
+        const audio = clip.audio.cloneNode();
+        audio.volume = 0.85;
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+        if (duration && duration < clip.duration) {
+          setTimeout(() => {
+            audio.pause();
+            audio.currentTime = 0;
+          }, playLen * 1000);
+        }
+      }
+
+      function playChord(indices) {
+        indices.forEach((i) => playNote(i));
+      }
+
+      async function playMelody(indices) {
+        for (let i = 0; i < indices.length; i++) {
+          playNote(indices[i]);
+          const clip = noteClips[indices[i]];
+          const wait = clip ? Math.min(clip.duration * 1000 + 80, 900) : 700;
+          await sleep(wait);
+        }
+      }
+
+      function sleep(ms) {
+        return new Promise((r) => setTimeout(r, ms));
+      }
+
+      function layoutBlackKeys() {
+        const whiteKeys = pianoEl.querySelectorAll(".white-key");
+        if (!whiteKeys.length) return;
+        const pianoRect = pianoEl.getBoundingClientRect();
+        const whiteW = whiteKeys[0].getBoundingClientRect().width;
+        const blackW = whiteW * 0.58;
+
+        BLACK_INDICES.forEach((noteIdx, bi) => {
+          const key = keyEls[noteIdx];
+          if (!key) return;
+          const afterWhite = BLACK_AFTER_WHITE[bi];
+          const boundaryKey = whiteKeys[afterWhite];
+          const boundaryRect = boundaryKey.getBoundingClientRect();
+          const centerX = boundaryRect.left - pianoRect.left;
+          key.style.width = blackW + "px";
+          key.style.left = centerX + "px";
+        });
+      }
+
+      function buildPiano() {
+        const whiteKeysDiv = document.createElement("div");
+        whiteKeysDiv.className = "white-keys";
+
+        WHITE_INDEX_MAP.forEach((noteIdx, wi) => {
+          const key = document.createElement("div");
+          key.className = "white-key";
+          key.dataset.index = noteIdx;
+          const lbl = document.createElement("span");
+          lbl.className = "label";
+          lbl.textContent = WHITE_LABELS[wi];
+          key.appendChild(lbl);
+          key.addEventListener("pointerdown", (e) => onKeyPress(noteIdx, key, e));
+          whiteKeysDiv.appendChild(key);
+          keyEls[noteIdx] = key;
+        });
+
+        const blackKeysDiv = document.createElement("div");
+        blackKeysDiv.className = "black-keys";
+
+        BLACK_INDICES.forEach((noteIdx) => {
+          const key = document.createElement("div");
+          key.className = "black-key";
+          key.dataset.index = noteIdx;
+          key.addEventListener("pointerdown", (e) => onKeyPress(noteIdx, key, e));
+          blackKeysDiv.appendChild(key);
+          keyEls[noteIdx] = key;
+        });
+
+        pianoEl.appendChild(whiteKeysDiv);
+        pianoEl.appendChild(blackKeysDiv);
+        requestAnimationFrame(layoutBlackKeys);
+        if (typeof ResizeObserver !== "undefined") {
+          new ResizeObserver(layoutBlackKeys).observe(pianoEl);
+        }
+      }
+
+      function flashKey(el) {
+        el.classList.add("pressed");
+        setTimeout(() => el.classList.remove("pressed"), 150);
+      }
+
+      function onKeyPress(index, el, e) {
+        e.preventDefault();
+        playNote(index, 0.4);
+        flashKey(el);
+
+        if (state !== "answering") return;
+
+        playerInput.push(index);
+        el.classList.add("selected");
+
+        const needed = noteCount;
+        if (playerInput.length >= needed) {
+          judgeAnswer();
+        } else {
+          statusBar.textContent = `已按 ${playerInput.length}/${needed} 个音`;
+        }
+      }
+
+      function clearKeySelection() {
+        keyEls.forEach((el) => {
+          if (el) el.classList.remove("selected");
+        });
+        playerInput = [];
+      }
+
+      function randomNotes(count) {
+        const pool = [...Array(13).keys()];
+        const result = [];
+        while (result.length < count) {
+          const pick = pool[Math.floor(Math.random() * pool.length)];
+          if (!result.includes(pick)) {
+            result.push(pick);
+          }
+        }
+        return result;
+      }
+
+      function updateChancesDisplay() {
+        chanceEls.forEach((el, i) => {
+          el.classList.toggle("used", i >= chancesLeft);
+        });
+      }
+
+      const MECH_RAIL = { inset: 8, thumbH: 18 };
+
+      function syncMechThumb(input, thumbEl, railEl) {
+        if (!input || !thumbEl || !railEl) return;
+        const min = Number(input.min);
+        const max = Number(input.max);
+        const val = Number(input.value);
+        const travel = railEl.clientHeight - MECH_RAIL.inset * 2;
+        const t = max > min ? (val - min) / (max - min) : 0;
+        thumbEl.style.top = (MECH_RAIL.inset + (1 - t) * travel - MECH_RAIL.thumbH / 2) + "px";
+      }
+
+      function mechValueFromPointerY(railEl, input, clientY) {
+        const rect = railEl.getBoundingClientRect();
+        const min = Number(input.min);
+        const max = Number(input.max);
+        const travel = railEl.clientHeight - MECH_RAIL.inset * 2;
+        let y = clientY - rect.top - MECH_RAIL.inset;
+        y = Math.max(0, Math.min(travel, y));
+        const t = 1 - y / travel;
+        return Math.round(min + t * (max - min));
+      }
+
+      function setMechFromPointer(railEl, input, thumbEl, clientY, onChange) {
+        if (input.disabled) return;
+        const next = mechValueFromPointerY(railEl, input, clientY);
+        if (Number(input.value) !== next) {
+          input.value = String(next);
+          onChange();
+        } else {
+          syncMechThumb(input, thumbEl, railEl);
+        }
+      }
+
+      function bindMechRail(railEl, input, thumbEl, onChange) {
+        railEl.addEventListener("pointerdown", (e) => {
+          if (input.disabled) return;
+          e.preventDefault();
+          railEl.setPointerCapture(e.pointerId);
+          setMechFromPointer(railEl, input, thumbEl, e.clientY, onChange);
+        });
+        railEl.addEventListener("pointermove", (e) => {
+          if (!railEl.hasPointerCapture(e.pointerId)) return;
+          setMechFromPointer(railEl, input, thumbEl, e.clientY, onChange);
+        });
+        railEl.addEventListener("pointerup", (e) => {
+          if (railEl.hasPointerCapture(e.pointerId)) {
+            railEl.releasePointerCapture(e.pointerId);
+          }
+        });
+        railEl.addEventListener("pointercancel", (e) => {
+          if (railEl.hasPointerCapture(e.pointerId)) {
+            railEl.releasePointerCapture(e.pointerId);
+          }
+        });
+      }
+
+      function syncAllMechThumbs() {
+        syncMechThumb(noteCountSlider, noteCountThumb, noteCountRail);
+        syncMechThumb(modeSlider, modeThumb, modeRail);
+      }
+
+      function updateModeUI() {
+        const count = parseInt(noteCountSlider.value, 10);
+        noteCount = count;
+
+        noteCountTicks.forEach((el) => {
+          el.classList.toggle("active", parseInt(el.dataset.val, 10) === count);
+        });
+
+        if (count <= 1) {
+          modePanel.classList.add("disabled");
+          modeSlider.disabled = true;
+        } else {
+          modePanel.classList.remove("disabled");
+          modeSlider.disabled = false;
+          isChordMode = parseInt(modeSlider.value, 10) === 0;
+        }
+
+        const modeVal = parseInt(modeSlider.value, 10);
+        labelChord.classList.toggle("active", modeVal === 0);
+        labelMelody.classList.toggle("active", modeVal === 1);
+        syncAllMechThumbs();
+      }
+
+      const OVERLAY_ICONS = {
+        correct:
+          '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M12 34 L28 50 L52 16" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        wrong:
+          '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M18 18 L46 46 M46 18 L18 46" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg>',
+      };
+
+      function showOverlay(symbol, className) {
+        if (className === "correct" || className === "wrong") {
+          lcdOverlay.innerHTML = OVERLAY_ICONS[className];
+          lcdOverlay.className = "lcd-overlay icon " + className;
+        } else {
+          lcdOverlay.textContent = symbol;
+          lcdOverlay.className = "lcd-overlay " + (className || "");
+        }
+      }
+
+      function hideOverlay() {
+        lcdOverlay.className = "lcd-overlay hidden";
+      }
+
+      function showQuestion() {
+        showOverlay("?", "");
+      }
+
+      function drawStaff(notesToShow, centerNotes) {
+        const canvas = staffCanvas;
+        const lcd = document.getElementById("lcd");
+        const w = lcd.clientWidth;
+        const h = lcd.clientHeight;
+        canvas.width = w * devicePixelRatio;
+        canvas.height = h * devicePixelRatio;
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+
+        ctx.fillStyle = "#0a1f14";
+        ctx.fillRect(0, 0, w, h);
+
+        const lineGap = Math.min(h * 0.13, w * 0.045);
+        const staffTop = (h - lineGap * 4) * 0.5;
+        const layout = positionClefImg(staffTop, lineGap, w);
+
+        ctx.strokeStyle = "rgba(61, 255, 138, 0.45)";
+        ctx.lineWidth = Math.max(1.2, lineGap * 0.1);
+        for (let i = 0; i < 5; i++) {
+          const y = staffTop + i * lineGap;
+          ctx.beginPath();
+          ctx.moveTo(layout.staffLineLeft, y);
+          ctx.lineTo(layout.staffRight, y);
+          ctx.stroke();
+        }
+
+        if (notesToShow && notesToShow.length > 0) {
+          drawNotesOnStaff(ctx, notesToShow, w, layout, centerNotes);
+        }
+      }
+
+      function noteStaffY(noteIndex, staffTop, lineGap) {
+        return staffTop + STAFF_POS_FROM_TOP[noteIndex] * (lineGap / 2);
+      }
+
+      function drawSharpSign(ctx, x, y, lineGap) {
+        const w = lineGap * 0.55;
+        const h = lineGap * 1.15;
+        const lw = Math.max(1.3, lineGap * 0.09);
+        const slant = lineGap * 0.14;
+        ctx.save();
+        ctx.strokeStyle = ctx.fillStyle;
+        ctx.lineWidth = lw;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(x - w * 0.32, y - h * 0.48);
+        ctx.lineTo(x - w * 0.32, y + h * 0.48);
+        ctx.moveTo(x - w * 0.02, y - h * 0.48);
+        ctx.lineTo(x - w * 0.02, y + h * 0.48);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - w * 0.48, y - h * 0.18);
+        ctx.lineTo(x + w * 0.18, y - h * 0.18 - slant);
+        ctx.moveTo(x - w * 0.48, y + h * 0.12);
+        ctx.lineTo(x + w * 0.18, y + h * 0.12 - slant);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawAccidentals(ctx, noteIndices, baseX, staffTop, lineGap) {
+        const sharps = noteIndices.filter(isBlackKey);
+        if (!sharps.length) return;
+        sharps.sort((a, b) => noteStaffY(b, staffTop, lineGap) - noteStaffY(a, staffTop, lineGap));
+        let stackOffset = 0;
+        let prevY = Infinity;
+        sharps.forEach((noteIdx) => {
+          const y = noteStaffY(noteIdx, staffTop, lineGap);
+          if (prevY - y < lineGap * 0.85) {
+            stackOffset += lineGap * 0.38;
+          } else {
+            stackOffset = 0;
+          }
+          drawSharpSign(ctx, baseX - lineGap * 0.95 - stackOffset, y, lineGap);
+          prevY = y;
+        });
+      }
+
+      function drawNoteHeadOnly(ctx, x, y, lineGap) {
+        const hw = lineGap * 0.42;
+        const hh = lineGap * 0.3;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-0.35);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawNoteWithStem(ctx, x, y, lineGap, stemUp) {
+        const hw = lineGap * 0.42;
+        const hh = lineGap * 0.3;
+        drawNoteHeadOnly(ctx, x, y, lineGap);
+
+        const stemLen = lineGap * 3.5;
+        const stemW = Math.max(1.4, lineGap * 0.1);
+        if (stemUp) {
+          const sx = x + hw * 0.72;
+          ctx.fillRect(sx - stemW / 2, y - stemLen, stemW, stemLen + hh * 0.3);
+        } else {
+          const sx = x - hw * 0.72;
+          ctx.fillRect(sx - stemW / 2, y, stemW, stemLen);
+        }
+      }
+
+      function drawNotesOnStaff(ctx, notes, w, layout, centerNotes) {
+        const { staffTop, lineGap, noteAreaLeft, staffRight } = layout;
+        const count = notes.length;
+        const noteAreaRight = staffRight - lineGap * 0.2;
+        const spacing = Math.min(lineGap * 2.2, (noteAreaRight - noteAreaLeft) / Math.max(count, 1));
+        const hw = lineGap * 0.42;
+        const stemLen = lineGap * 3.5;
+        const stemW = Math.max(1.4, lineGap * 0.1);
+        const middleLineY = staffTop + 2 * lineGap;
+        const isChord = count > 1 && isChordMode;
+
+        const displayNotes = isChord || noteCount <= 1
+          ? [...notes].sort((a, b) => a - b)
+          : [...notes];
+
+        let noteStartX = noteAreaLeft;
+        if (centerNotes) {
+          if (isChord || count <= 1) {
+            noteStartX = (noteAreaLeft + noteAreaRight) / 2;
+          } else {
+            const span = (count - 1) * spacing;
+            noteStartX = (noteAreaLeft + noteAreaRight - span) / 2;
+          }
+        }
+
+        if (isChord) {
+          const x = noteStartX;
+          const ys = displayNotes.map((n) => noteStaffY(n, staffTop, lineGap));
+          const lowestY = Math.max(...ys);
+          const stemUp = lowestY > middleLineY;
+          const stemX = stemUp ? x + hw * 0.72 : x - hw * 0.72;
+
+          displayNotes.forEach((noteIdx) => {
+            drawLedgerLines(ctx, noteIdx, x, staffTop, lineGap);
+          });
+
+          ctx.fillStyle = "#3dff8a";
+          drawAccidentals(ctx, displayNotes, x, staffTop, lineGap);
+          displayNotes.forEach((noteIdx) => {
+            drawNoteHeadOnly(ctx, x, noteStaffY(noteIdx, staffTop, lineGap), lineGap);
+          });
+
+          const minY = Math.min(...ys);
+          const maxY = Math.max(...ys);
+          if (stemUp) {
+            ctx.fillRect(stemX - stemW / 2, minY - stemLen, stemW, maxY - minY + stemLen + lineGap * 0.1);
+          } else {
+            ctx.fillRect(stemX - stemW / 2, minY, stemW, maxY - minY + stemLen);
+          }
+        } else {
+          displayNotes.forEach((noteIdx, i) => {
+            const x = noteStartX + i * spacing;
+            const y = noteStaffY(noteIdx, staffTop, lineGap);
+            const stemUp = y > middleLineY;
+            drawLedgerLines(ctx, noteIdx, x, staffTop, lineGap);
+            ctx.fillStyle = "#3dff8a";
+            if (isBlackKey(noteIdx)) {
+              drawSharpSign(ctx, x - lineGap * 0.95, y, lineGap);
+            }
+            drawNoteWithStem(ctx, x, y, lineGap, stemUp);
+          });
+        }
+      }
+
+      function drawLedgerLines(ctx, noteIdx, x, staffTop, lineGap) {
+        const pos = STAFF_POS_FROM_TOP[noteIdx];
+        const lw = lineGap * 1.15;
+        ctx.strokeStyle = "rgba(61, 255, 138, 0.45)";
+        ctx.lineWidth = Math.max(1.2, lineGap * 0.1);
+
+        if (pos > 8) {
+          for (let p = 10; p <= pos; p += 2) {
+            const ly = staffTop + p * (lineGap / 2);
+            ctx.beginPath();
+            ctx.moveTo(x - lw / 2, ly);
+            ctx.lineTo(x + lw / 2, ly);
+            ctx.stroke();
+          }
+        }
+        if (pos < 0) {
+          for (let p = -2; p >= pos; p -= 2) {
+            const ly = staffTop + p * (lineGap / 2);
+            ctx.beginPath();
+            ctx.moveTo(x - lw / 2, ly);
+            ctx.lineTo(x + lw / 2, ly);
+            ctx.stroke();
+          }
+        }
+      }
+
+      function arraysEqualAsSet(a, b) {
+        if (a.length !== b.length) return false;
+        const sa = [...a].sort((x, y) => x - y);
+        const sb = [...b].sort((x, y) => x - y);
+        return sa.every((v, i) => v === sb[i]);
+      }
+
+      function arraysEqualSeq(a, b) {
+        if (a.length !== b.length) return false;
+        return a.every((v, i) => v === b[i]);
+      }
+
+      function judgeAnswer() {
+        state = "result";
+        startBtn.disabled = true;
+        noteCountSlider.disabled = true;
+        modeSlider.disabled = true;
+
+        const correct = isChordMode || noteCount <= 1
+          ? arraysEqualAsSet(playerInput, answerNotes)
+          : arraysEqualSeq(playerInput, answerNotes);
+
+        if (correct) {
+          showOverlay(null, "correct");
+          statusBar.textContent = "太棒了，答对了！";
+          clearTimeout(resultTimeout);
+          resultTimeout = setTimeout(finishCorrectRound, 2000);
+        } else {
+          chancesLeft--;
+          updateChancesDisplay();
+          showOverlay(null, "wrong");
+          statusBar.textContent = chancesLeft > 0
+            ? `答错了，还有 ${chancesLeft} 次机会`
+            : "机会用完了，公布答案";
+
+          clearTimeout(resultTimeout);
+          resultTimeout = setTimeout(() => {
+            if (chancesLeft > 0) {
+              showQuestion();
+              drawStaff(null);
+              clearKeySelection();
+              state = "answering";
+              statusBar.textContent = isChordMode
+                ? `和弦模式：请按出 ${noteCount} 个音（不分顺序）`
+                : `旋律模式：请按顺序弹出 ${noteCount} 个音`;
+              setListenButton(true);
+            } else {
+              revealAnswer();
+            }
+          }, 1200);
+        }
+      }
+
+      function showAnswerOnStaff() {
+        hideOverlay();
+        drawStaff(answerNotes, true);
+      }
+
+      function finishCorrectRound() {
+        state = "reveal";
+        showAnswerOnStaff();
+        startBtn.disabled = false;
+        startBtn.textContent = "再来一次";
+        noteCountSlider.disabled = false;
+        updateModeUI();
+        clearKeySelection();
+      }
+
+      function revealAnswer() {
+        state = "reveal";
+        showAnswerOnStaff();
+        statusBar.textContent = "答案是：" + answerNotes.map((i) => NOTE_NAMES[i]).join("、");
+        startBtn.disabled = false;
+        startBtn.textContent = "再来一次";
+        noteCountSlider.disabled = false;
+        updateModeUI();
+        clearKeySelection();
+      }
+
+      async function replaySound() {
+        if (isListening || state === "result" || state === "idle" || state === "reveal") return;
+        isListening = true;
+        startBtn.disabled = true;
+        const resumeAnswering = state === "answering";
+        state = "playing";
+        showQuestion();
+        try {
+          await loadPianoSamples();
+        } catch {
+          isListening = false;
+          setListenButton(true);
+          return;
+        }
+        if (isChordMode || noteCount <= 1) {
+          playChord(answerNotes);
+          await sleep(chordPlayDuration(answerNotes));
+        } else {
+          await playMelody(answerNotes);
+        }
+        isListening = false;
+        if (resumeAnswering && state === "playing") {
+          state = "answering";
+          setListenButton(true);
+        }
+      }
+
+      function chordPlayDuration(indices) {
+        const maxDur = indices.reduce((max, i) => {
+          const clip = noteClips[i];
+          return clip ? Math.max(max, clip.duration) : max;
+        }, 1);
+        return maxDur * 1000 + 120;
+      }
+
+      async function startRound() {
+        initAudio();
+        clearTimeout(resultTimeout);
+        isListening = false;
+
+        noteCount = parseInt(noteCountSlider.value, 10);
+        isChordMode = noteCount <= 1 ? true : parseInt(modeSlider.value, 10) === 0;
+
+        chancesLeft = 3;
+        updateChancesDisplay();
+        answerNotes = randomNotes(noteCount);
+        playerInput = [];
+        clearKeySelection();
+
+        noteCountSlider.disabled = true;
+        modeSlider.disabled = true;
+        startBtn.disabled = true;
+        startBtn.textContent = "重听";
+
+        showQuestion();
+        drawStaff(null);
+
+        state = "playing";
+        const modeText = noteCount <= 1
+          ? "请听音后弹出这个音"
+          : isChordMode
+            ? `和弦模式：请按出 ${noteCount} 个音（不分顺序）`
+            : `旋律模式：请按顺序弹出 ${noteCount} 个音`;
+        statusBar.textContent = "正在加载音色…";
+
+        try {
+          await loadPianoSamples();
+        } catch {
+          statusBar.textContent = "钢琴采样加载失败，请确认 wav 文件夹与页面在同一目录";
+          state = "idle";
+          startBtn.disabled = false;
+          startBtn.textContent = "开始辨音";
+          noteCountSlider.disabled = false;
+          updateModeUI();
+          return;
+        }
+
+        statusBar.textContent = "正在播放…";
+
+        if (isChordMode || noteCount <= 1) {
+          playChord(answerNotes);
+          await sleep(chordPlayDuration(answerNotes));
+        } else {
+          await playMelody(answerNotes);
+        }
+
+        if (state === "playing") {
+          state = "answering";
+          statusBar.textContent = modeText + "（可点重听）";
+          setListenButton(true);
+        }
+      }
+
+      bindMechRail(noteCountRail, noteCountSlider, noteCountThumb, () => {
+        if (state === "idle" || state === "reveal") updateModeUI();
+        else syncAllMechThumbs();
+      });
+      bindMechRail(modeRail, modeSlider, modeThumb, () => {
+        if (state === "idle" || state === "reveal") updateModeUI();
+        else syncAllMechThumbs();
+      });
+
+      noteCountSlider.addEventListener("input", () => {
+        if (state === "idle" || state === "reveal") updateModeUI();
+      });
+
+      modeSlider.addEventListener("input", () => {
+        if (state === "idle" || state === "reveal") updateModeUI();
+      });
+
+      startBtn.addEventListener("click", () => {
+        if (state === "idle" || state === "reveal") {
+          startBtn.textContent = "重听";
+          startRound();
+        } else if (state === "answering") {
+          replaySound();
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        layoutBlackKeys();
+        syncAllMechThumbs();
+        if (state === "reveal") {
+          drawStaff(answerNotes, true);
+        } else if (state === "result" && lcdOverlay.classList.contains("correct")) {
+          drawStaff(null);
+        } else {
+          drawStaff(null);
+        }
+      });
+
+      if (clefImg) {
+        clefImg.addEventListener("load", () => {
+          if (state === "reveal") {
+            drawStaff(answerNotes, true);
+          } else if (lcdOverlay.classList.contains("correct") && answerNotes.length) {
+            drawStaff(null);
+          } else {
+            drawStaff(null);
+          }
+        });
+      }
+
+      buildPiano();
+      updateModeUI();
+      updateChancesDisplay();
+      drawStaff(null);
+      showQuestion();
+      loadPianoSamples().catch(() => {});
+    })();
+  </script>
+</body>
+</html>
